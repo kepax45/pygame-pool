@@ -17,8 +17,16 @@ class Ball:
     def draw(self, window):
         pygame.draw.circle(window, self.color, (self.x, self.y), self.radius, 0)
     def update(self):
-        self.x += self.vx
-        self.y += self.vy
+        nX = self.x + self.vx
+        nY = self.y + self.vy
+        for wall in Wall.wall_list:
+            k, n = Wall.get_line(self.x, self.y, self.x + self.vx, self.y + self.vy)
+            tacke = Wall.check_collision(k, n, wall.r)
+            tacke = Wall.reduce(tacke, self.x, self.y, self.x + self.vx, self.y + self.vy)
+            if tacke:
+                nX, nY = Wall.find_nearest(self.x, self.y, self.x + self.vx, self.y + self.vy, tacke)
+        self.x = nX
+        self.y = nY
     def get_angle(self):
         theta = math.atan2(self.vy, self.vx)
         return theta
@@ -107,6 +115,79 @@ class Line:
         return (-(self.mouse[0]-self.center[0])/100, -(self.mouse[1]-self.center[1])/100)
 
 class Wall:
+    wall_list = []
+    @staticmethod
+    def get_line(x1, y1, x2, y2):
+        if x1 == x2:
+            k = y1 - y2
+        else:
+            k = (y1 - y2) / (x1 - x2)
+        n = y1 - k * x1
+        return (k, n)
+    @staticmethod
+    def presek(k1, n1, k2, n2):
+        if k1 == k2:
+            return (0, 0)
+        x = (n2 - n1) / (k1 - k2)
+        y = k1 * x + n1
+        return (x, y)
+
+    @staticmethod
+    def check_collision(k, n, rect):
+        k1, n1 = Wall.get_line(rect.x, rect.y, rect.x + rect.width, rect.y)
+        tacka1 = Wall.presek(k, n, k1, n1)
+        k2, n2 = Wall.get_line(rect.x, rect.y + rect.height, rect.x + rect.width, rect.y + rect.height)
+        tacka2 = Wall.presek(k, n, k2, n2)
+        k3, n3 = Wall.get_line(rect.x, rect.y, rect.x, rect.y + rect.height)
+        tacka3 = Wall.presek(k, n, k3, n3)
+        k4, n4 = Wall.get_line(rect.x + rect.width, rect.y, rect.x + rect.width, rect.y + rect.height)
+        tacka4 = Wall.presek(k, n, k4, n4)
+        x1, y1 = tacka1
+        x2, y2 = tacka2
+        x3, y3 = tacka3
+        x4, y4 = tacka4
+        tacke = []
+        if rect.x <= x1 <= rect.x + rect.width:
+            tacke.append(tacka1)
+        if rect.x <= x2 <= rect.x + rect.width:
+            tacke.append(tacka2)
+        if rect.y <= y3 <= rect.y + rect.height:
+            tacke.append(tacka3)
+        if rect.y <= y4 <= rect.y + rect.height:
+            tacke.append(tacka4)
+        return tacke
+    @staticmethod
+    def reduce(points, x1, y1, x2, y2):
+        r = []
+        for tacka in points:
+            x3, y3 = tacka
+            if Wall.in_range(x1, y1, x2, y2, x3, y3):
+                r.append(tacka)
+        return r
+    @staticmethod
+    def in_range(x1, y1, x2, y2, x3, y3):
+        minX = min(x1, x2)
+        maxX = max(x1, x2)
+        minY = min(y1, y2)
+        maxY = max(y1, y2)
+        if minX <= x3 <= maxX and minY <= y3 <= maxY:
+            return True
+        return False
+
+    @staticmethod
+    def distance(x1, y1, x2, y2):
+        return ((x1 - x2) ** 2 + (y1 - y2) ** 2) ** 0.5
+
+    @staticmethod
+    def find_nearest(x1, y1, x2, y2, points):
+        nearest = (x2, y2)
+        minDistance = Wall.distance(x1, y1, x2, y2)
+        for point in points:
+            x3, y3 = point
+            if Wall.distance(x1, y1, x3, y3) < minDistance:
+                minDistance = Wall.distance(x1, y1, x3, y3)
+                nearest = point
+        return nearest
     def __init__(self, startX, startY, endX, endY, yMultiplier, xMultiplier, dampingFactor):
         self.r = pygame.Rect(startX, startY, endX-startX, endY-startY)
         self.x = startX
@@ -116,7 +197,11 @@ class Wall:
         self.dampingFactor = dampingFactor
         self.xMultiplier = xMultiplier
         self.yMultiplier = yMultiplier
-
+        Wall.wall_list.append(self)
+    @staticmethod
+    def handle_collisions():
+        for wall in Wall.wall_list:
+            wall.handle_collision()
     def collide_ball(self, ball):
         cx = ball.x
         cy = ball.y
@@ -144,17 +229,16 @@ class Wall:
         vel = ball.get_velocity()
         angle1 = ball.get_angle()
         angle = self.collide_ball(ball)[2]
-        pen_depth = ball.radius + 1- self.collide_ball(ball)[1]
+        pen_depth = ball.radius + 1 - self.collide_ball(ball)[1]
         # Resolve penetration and update ball's position
-        ball.x += pen_depth * math.cos(angle)
-        ball.y += pen_depth * math.sin(angle)
+        ball.x += -pen_depth * math.cos(angle1)
+        ball.y += pen_depth * math.sin(-angle1)
         return (vel, angle)
-    def handle_collisions(self):
+    def handle_collision(self):
         for ball in Ball.ball_list:
             if self.collide_ball(ball)[0]:
-                #self.pen_res(ball)
+                self.pen_res(ball)
                 xMul, yMul = self.collide_ball(ball)[-2:]
-                print(xMul, yMul)
                 ball.vx *= xMul
                 ball.vy *= yMul
 

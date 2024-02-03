@@ -7,7 +7,7 @@ os.environ['SDL_VIDEO_CENTERED'] = '1'
 running = True
 acceleration = 1
 window = pygame.display.set_mode((1000, 800))
-w1 = Wall(0, -10000, 1000, 50, 1, 1, 0.8)
+w1 = Wall(0, 0, 1000, 50, 1, 1, 0.8)
 w2 = Wall(0, 750, 1000, 800, 1, 1, 0.8)
 w3 = Wall(0, 0, 50, 1000, 1, 1, 0.8)
 w4 = Wall(950, 0, 1000, 800, 1, 1, 0.8)
@@ -37,19 +37,15 @@ while running:
         mX, mY = l.get_multiplier()
         b1.vx = 15*mX
         b1.vy = 15*mY
-        print(b1.vx, b1.vy)
         to_handle = False
     l.draw(window)
     Ball.check_collision()
     Ball.update_all(window)
-    w1.handle_collisions()
-    w2.handle_collisions()
-    w3.handle_collisions()
-    w4.handle_collisions()
     w1.draw(window)
     w2.draw(window)
     w3.draw(window)
     w4.draw(window)
+    Wall.handle_collisions()
     pygame.display.flip()
     window.fill((0, 0, 0))
 pygame.quit()
